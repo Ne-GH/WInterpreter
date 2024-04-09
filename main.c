@@ -89,6 +89,12 @@ void func3(char* str) {
 	printf("func3被调用，参数是%s\n", str);
 }
 
+/*****************************************************************************
+ * TODO,测试函数,用于快速输出字符出得到的hash值
+******************************************************************************/
+void PrintHash(char* str) {
+	printf("%d\n", StringToHash(str));
+}
 
 /*****************************************************************************
  * TODO,测试函数,用来快速打印token
@@ -99,6 +105,31 @@ void Print(char* begin, char* end) {
 	printf("%s \n",buf);
 }
 
+/*****************************************************************************
+ * TODO,测试函数,用来从文本读取代码文本,返回的char *由malloc获取，使用完毕应当调用free释放
+******************************************************************************/
+char* ReadFileToBuf(const char *path) {
+
+	FILE* file = fopen(path, "r");
+	
+	if (file == NULL)
+		return NULL;
+
+	fseek(file, 0, SEEK_END);
+	long len = ftell(file);
+	if (len == -1L) {
+		return NULL;
+	}
+	char* buf = malloc(len + 1);
+	if (buf == NULL)
+		return NULL;
+	rewind(file);
+	len = fread(buf, 1, len, file);
+	buf[len] = '\0';
+
+	fclose(file);
+	return buf;
+}
 
 /*****************************************************************************
  * 作用：将获取的使用两个指针表示的字符串token转为以NUL结尾的字符串
@@ -465,6 +496,9 @@ Symbol MatchUntilByType(SymbolsType symbol_type) {
 }
 
 
+/*****************************************************************************
+ * 作用：获取下一个类型不为None的token，中间获取的类型为None的token都将被丢弃
+******************************************************************************/
 void IgnoreNoneToken() {
 	Symbol symbol;
 	do {
@@ -473,6 +507,10 @@ void IgnoreNoneToken() {
 	cur_symbol = symbol;
 }
 
+
+/*****************************************************************************
+ * 作用：将代码文本指针移动到本行结尾的'\n'上,中间内容全部忽略
+******************************************************************************/
 void IgnoreOneLine() {
 	while (*str != '\n' && *str != '\0') {
 		str++;
@@ -480,7 +518,11 @@ void IgnoreOneLine() {
 }
 
 /*****************************************************************************
- *
+ * 作用：判断left_val op right_val 的结果
+ * 参数1：左侧操作数
+ * 参数2：比较运算符，可以是下列四种之一: <   <=   >   >=
+ * 参数3：右侧操作数
+ * 结果：如果left_val op right_val 的结果为真，返回1。否则返回0
 ******************************************************************************/
 int CheckByTwoValue(int left_val,SymbolsId op, int right_val) {
 	int result = 0;
@@ -506,6 +548,11 @@ int CheckByTwoValue(int left_val,SymbolsId op, int right_val) {
 	return result;
 }
 
+
+/*****************************************************************************
+ * 作用：从src中获取一个如下格式的判断语句（left_val op right_val），并交给 CheckByTwoValue 解析该语句结果
+ * 结果：如果left_val op right_val 的结果为真，返回1。否则返回0
+******************************************************************************/
 int CheckExpression() {
 		// MatchByType(Keyword);
 		Symbol left_val = Match();
@@ -526,42 +573,54 @@ int CheckExpression() {
 		}
 }
 
+/*****************************************************************************
+ * 作用：不断从str中获取如下格式的判断语句（left_val op right_val）,并交给CheckExpression进行判断，
+ *	     对返回的判断结果不断做相应位运算,直到获取到token ')'，判断结束，返回判断结果
+ *
+ * 结果：返回判断语句是否成立，成立返回1，不成立返回0
+******************************************************************************/
 int CheckAllExpression() {
 
+	int ret = CheckExpression();
+
+	while (1) {
+		Match();
+		switch (cur_symbol.id) {
+		case LAND: {
+			int rhs = CheckExpression();
+			ret &= rhs;
+			break;
+		}
+		case LOR: {
+			int rhs = CheckExpression();
+			ret |= rhs;
+			break;
+		}
+		default:
+			// RLB  ')'    异常的结尾会使cur_symbol.id 置为None,也会跳出while
+			return ret;
+			break;
+		}
+
+	}
+	return ret;
 }
+
+/*****************************************************************************
+ * 作用：语句分析，支持两种语句，if和函数调用, 根据当前token判断执行那种语句的处理
+******************************************************************************/
 void Statement(void) {
 
 	if (cur_symbol.id == IF) {
 		// 获取if 条件
 		MatchById(LLB);
-		int ans = CheckExpression();
-
-		Match();
-		switch (cur_symbol.id) {
-		case LAND: {
-			int rhs = CheckExpression();
-			ans &= rhs;
-			Match();
-			break;
-		}
-		case LOR: {
-			int rhs = CheckExpression();
-			ans |= rhs;
-			Match();
-			break;
-		}
-		default: 
-			// RLB;
-			break;
-		}
-
+		int result = CheckAllExpression();
 
 		// 条件成立需要执行if下的语句
-		if (ans == 1) {
+		if (result == 1) {
 			Match();
-			// 仅支持单条指令
 
-			//TODO
+			//TODO		仅支持单条指令
 			Statement();
 			MatchUntilById(ELSE);
 			IgnoreNoneToken();
@@ -622,6 +681,8 @@ void Statement(void) {
 
 }
 
+
+// val 数值变化时调用, 设置str作为代码分析的入口
 void AnalyseSliderVale(char *pstr,int val) {
 
 	symbols[VAL].val = val;
@@ -666,9 +727,9 @@ void AnalyseSliderVale(char *pstr,int val) {
 	}
 }
 
-
-
-
+/*****************************************************************************
+ * 作用：初始化符号表中的关键字,设置符号表中相应元素的类型为Keyword,id为相应SymbolsId,以及bgin和end用于获取hash
+******************************************************************************/
 void InitKeywordsFromSymbols(){
 #define INIT_KEY_SYMBOLS(key,str,len)  \
 	symbols[key].type = Keyword; \
@@ -683,6 +744,9 @@ void InitKeywordsFromSymbols(){
 #undef  INIT_KEY_WORDS
 }
 
+/*****************************************************************************
+ * 作用：初始化符号表中的函数，设置符号表中相应元素的类型为Functional,id为相应SymbolsId,以及begin和end用于获取hash
+******************************************************************************/
 void InitFunctionalFromSymbols() {
 #define INIT_FUNCTIONAL_SYMBOLS(key,str,len)  \
 	symbols[key].type = Functional;\
@@ -691,51 +755,26 @@ void InitFunctionalFromSymbols() {
 	symbols[key].end = symbols[key].begin + len;\
 	symbols[key].val = (int)&str;
 
-
 	INIT_FUNCTIONAL_SYMBOLS(FUNC1,func1,5);
-
 	INIT_FUNCTIONAL_SYMBOLS(FUNC2,func2,5);
-	
 	INIT_FUNCTIONAL_SYMBOLS(FUNC3,func3,5);
-
 
 #undef INIT_FUNCIONAL_SYMBOLS
 }
 
-char* ReadFileToBuf(const char *path) {
-
-	FILE* file = fopen(path, "r");
-	
-	if (file == NULL)
-		return NULL;
-
-	fseek(file, 0, SEEK_END);
-	long len = ftell(file);
-	if (len == -1L) {
-		return NULL;
-	}
-	char* buf = malloc(len + 1);
-	if (buf == NULL)
-		return NULL;
-	rewind(file);
-	len = fread(buf, 1, len, file);
-	buf[len] = '\0';
-
-	fclose(file);
-	return buf;
-}
-
+/*****************************************************************************
+ * 作用：初始化符号表
+ *      调用 InitKeywordsFromSymbos 初始化符号表中的关键字，
+ *      调用 InitFunctionalFromSymbols 初始化符号表中的函数
+******************************************************************************/
 void InitSymbol() {
 	InitKeywordsFromSymbols();
 	InitFunctionalFromSymbols();
 }
 
-void PrintHash(char* str) {
-	printf("%d\n", StringToHash(str));
-}
-
-
 int main(int argc,char *argv[]) {
+
+	// TODO程序在解析之前需要初始化符号表一次
 	InitSymbol();
 
 	char* command = ReadFileToBuf("./command.txt");
@@ -743,14 +782,6 @@ int main(int argc,char *argv[]) {
 	printf("val is %d\n", val);
 	AnalyseSliderVale(command,val);
 	free(command);
-
-	//PrintHash("if");
-	//PrintHash("VAL");
-	//PrintHash("elif");
-	//PrintHash("else");
-	//PrintHash("func1");
-	//PrintHash("func2");
-	//PrintHash("func3");
 
 	return 0;
 }
