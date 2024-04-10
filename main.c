@@ -22,7 +22,7 @@ typedef enum {
 
 typedef enum {
 	// NONE = 0,用来标识错误
-	IF = 1, ELSE, ELIF, VAL, LLB, RLB, LBB, RBB, LT, GT, LE, GE, COMMA, SEMICOLON,AND,OR,LAND,LOR,
+	IF = 1, ELSE, ELIF, FI, VAL, LLB, RLB, LBB, RBB, LT, GT, LE, GE, COMMA, SEMICOLON,AND,OR,LAND,LOR,
 	FUNC1 = 32, FUNC2, FUNC3
 }SymbolsId;
 
@@ -38,6 +38,7 @@ typedef struct Symbol {
 // SymbolId 处的定义用全大写，相应的hash用大小写
 // HashEnum 应当使用另一个项目生成，防止输入错误以及hash冲突
 enum HashEnum {
+	Fi = 597,
 	If = 624,
 	Val = 3998,
 	Elif = 59624,
@@ -199,6 +200,10 @@ Symbol Next(void) {
 				token.type = Keyword;
 				token.id = ELSE;
 				return token;
+			case Fi:
+				token.type = Keyword;
+				token.id = FI;
+				return token;
 			case Val:
 				token.type = Keyword;
 				token.id = VAL;
@@ -222,47 +227,6 @@ Symbol Next(void) {
 				token.type = Value;
 				return token;
 			}
-			//if (strncmp(token.begin, symbols[IF].begin, 2) == 0) {
-			//	token.type = Keyword;
-			//	token.id = IF;
-			//	return token;
-			//}
-			//if (strncmp(token.begin, symbols[ELIF].begin, 4) == 0) {
-			//	token.type = Keyword;
-			//	token.id = IF;	// elif 被认为是 if
-			//	return token;
-			//}
-			//if (strncmp(token.begin, symbols[ELSE].begin, 4) == 0) {
-			//	token.type = Keyword;
-			//	token.id = ELSE;
-			//	return token;
-			//}
-			//if (strncmp(token.begin, symbols[VAL].begin, 3) == 0) {
-			//	token.type = Keyword;
-			//	token.id = VAL;
-			//	return token;
-			//}
-
-			//// 和内置函数比较
-			//if (strncmp(token.begin, symbols[FUNC1].begin, 5) == 0) {
-			//	token.type = Functional;
-			//	token.id = FUNC1;
-			//	return token;
-			//}
-			//if (strncmp(token.begin, symbols[FUNC2].begin, 5) == 0) {
-			//	token.type = Functional;
-			//	token.id = FUNC2;
-			//	return token;
-			//}
-			//if (strncmp(token.begin, symbols[FUNC3].begin, 5) == 0) {
-			//	token.type = Functional;
-			//	token.id = FUNC3;
-			//	return token;
-			//}
-			//// 都不相同时认为是变量,实际上，不支持变量定义时应认为该表达式不可达
-			//token.type = Value;
-			//return token;
-
 		}
 		else switch (*str) {
 		case '(':
@@ -496,6 +460,20 @@ Symbol MatchUntilByType(SymbolsType symbol_type) {
 }
 
 
+Symbol MatchUntilByIF() {
+	Symbol symbol;
+	do {
+		symbol = Next();
+	} while (!(symbol.id == IF || symbol.id == ELSE || symbol.id == FI)
+		&& *str != '\0');
+	if (*str == '0') {
+		memset(&symbol,0,sizeof(Symbol));
+		cur_symbol = symbol;
+	}
+	return symbol;
+}
+
+
 /*****************************************************************************
  * 作用：获取下一个类型不为None的token，中间获取的类型为None的token都将被丢弃
 ******************************************************************************/
@@ -618,29 +596,51 @@ void Statement(void) {
 
 		// 条件成立需要执行if下的语句
 		if (result == 1) {
-			Match();
-
 			//TODO		仅支持单条指令
-			Statement();
-			MatchUntilById(ELSE);
-			IgnoreNoneToken();
-			IgnoreOneLine();
-			Match();
-			Statement();
+			while (Match().type == Functional)
+				Statement();				
+
+			//MatchUntilById(ELSE);
+			//IgnoreNoneToken();
+			//IgnoreOneLine();
+			MatchUntilById(FI);
+			// Match();
+			//Statement();
 
 			return;
 		}
 		
-		IgnoreNoneToken();
-		IgnoreOneLine();
-		Match();
-		if (cur_symbol.id == ELSE) {
-			MatchByType(Functional);
+		// 如果if 未命中，需匹配到下一个elif（if）、else 、fi
+		// MatchToIfEnd()
+		switch (MatchUntilByIF().id) {
+
+		case IF:
 			Statement();
+			return;
+		case ELSE: {
+			while (Match().type == Functional)
+				Statement();				
+			return;
 		}
-		else {
-			Statement();
+		case FI:
+			return;
+		default:
+			printf("意外的条件控制符\n");
+			return;
 		}
+		//IgnoreNoneToken();
+		//IgnoreOneLine();
+
+		// 判断cur_symbol.id 是 if ，else ,fi中的哪一个
+		// 由于新增了fi作为if的结尾，因此其余获取到的其他token应视为语法错误
+		// 如果是if 则statement （返回是否可行？）
+		//if (cur_symbol.id == ELSE) {
+		//	MatchByType(Functional);
+		//	Statement();
+		//}
+		//else {
+		//	Statement();
+		//}
 
 		return;
 	}
@@ -738,6 +738,7 @@ void InitKeywordsFromSymbols(){
 	symbols[key].end = symbols[key].begin + len;\
 
 	INIT_KEY_SYMBOLS(IF,"if",2);
+	INIT_KEY_SYMBOLS(IF,"fi",2);
 	INIT_KEY_SYMBOLS(VAL, "VAL", 3);
 	INIT_KEY_SYMBOLS(ELIF, "elif", 4);
 	INIT_KEY_SYMBOLS(ELSE, "else", 4);
