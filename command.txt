@@ -1,4 +1,4 @@
-func3 ("line is 1");
+func1 (1,2); 
 
 
 if (1<=VAL)

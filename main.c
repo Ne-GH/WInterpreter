@@ -85,8 +85,9 @@ extern int code_line;
 /*****************************************************************************
  * 测试函数,func1,func2,func3,测试函数调用和匹配不同类型的参数
 ******************************************************************************/
-void func1(int arg1, int arg2) {
+int func1(int arg1, int arg2) {
 	printf("func1函数在第%d行被调用，参数1为%d，参数2为%d\n",code_line,arg1,arg2);
+	return arg1 + arg2;
 }
 void func2(int arg) {
 	printf("func2函数在第%d行被调用，参数为%d\n",code_line,arg);
@@ -608,7 +609,9 @@ void MatchAllArg() {
 		}
 		else {
 			printf("错误的参数\n");
+			return;
 		}
+		i++;
 		// 如果是字符串就malloc一段内存，指针给args[i].val , args[i].flag 置为 1，表示是字符串
 	}
 }
@@ -666,7 +669,7 @@ void Statement(void) {
 	*/
 		void (*func)() = symbols[cur_symbol.id].val;
 		MatchAllArg();
-		func(args[0], args[1], args[2], args[3], args[4]);
+		func(args[0].val, args[1].val, args[2].val, args[3].val, args[4].val, args[5].val);
 		MatchById(SEMICOLON);
 
 
