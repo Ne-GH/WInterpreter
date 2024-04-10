@@ -6,6 +6,16 @@
 
 
 /*****************************************************************************
+ * BNF 如下：
+ * 
+ *	<if statement>		:= 'if' '(' <check_statement> ')' <statement>+ {<elif_statement>} {<else_statement>} 'fi'
+ *	<check_statement>	:= <left_val> <op> <right_val> { <LOR> <left_val> <op> <right_val> }
+ *	<left_val>			:= number | 'VAL'
+ *	<right_val>			:= number | 'VAL'
+ *	<op>				:= '&&' | '||' | '=='
+ *	<elif_statement>	:= 'elif' '(' <check_statement> ')' <statement>+ {<elif_statement>} {<else_statement>}
+ *	<else_statement>	:= 'else'	<statement>+
+ *	<statement>			:= functional([arg] {',' arg}) ';'
  *
 ******************************************************************************/
 
@@ -13,7 +23,6 @@
 // 1、在符号id中添加该函数名称作为ID					ID可通过另一个项目生成
 // 2、在InitSymbolFromFuntional中添加函数
 // 3、在next获取到变量token时对该函数进行比较			case 中的内容可通过另一个项目生成
-// 4、在语法分析中，添加遇到该函数的处理流程		
 
 typedef enum {
 	None, Number, String, Value, Functional, Keyword, Cmp,
@@ -22,7 +31,7 @@ typedef enum {
 
 typedef enum {
 	// NONE = 0,用来标识错误
-	IF = 1, ELSE, ELIF, FI, VAL, LLB, RLB, LBB, RBB, LT, GT, LE, GE, COMMA, SEMICOLON,AND,OR,LAND,LOR,
+	IF = 1, ELSE, ELIF, FI, VAL, LLB, RLB, LT, GT, LE, GE, ASSIGNMENT, EQUAL, COMMA, SEMICOLON, AND, OR, LAND, LOR,
 	FUNC1 = 32, FUNC2, FUNC3
 }SymbolsId;
 
@@ -33,9 +42,7 @@ typedef struct Symbol {
 	int val; 
 }Symbol;
 
-
-
-// SymbolId 处的定义用全大写，相应的hash用大小写
+// SymbolId 处的定义用全大写，相应的hash用大小写混写
 // HashEnum 应当使用另一个项目生成，防止输入错误以及hash冲突
 enum HashEnum {
 	Fi = 597,
@@ -62,7 +69,6 @@ int StringToHash(char* str) {
 	return hash_ret;
 }
 
-
 /*****************************************************************************
  * 用于计算hash，区别在于本函数参数使用两个char *作范围，无需NUL结尾
 ******************************************************************************/
@@ -75,30 +81,22 @@ int RangeStringToHash(char* begin, char* end) {
 	return ret_hash;
 }
 
-
-
+extern int code_line;
 /*****************************************************************************
- * TODO,测试函数,func1,func2,func3,测试不同的函数和参数
+ * 测试函数,func1,func2,func3,测试函数调用和匹配不同类型的参数
 ******************************************************************************/
 void func1(int arg1, int arg2) {
-	printf("func1函数被调用，参数1为%d，参数2为%d\n",arg1,arg2);
+	printf("func1函数在第%d行被调用，参数1为%d，参数2为%d\n",code_line,arg1,arg2);
 }
 void func2(int arg) {
-	printf("func2函数被调用，参数为%d\n",arg);
+	printf("func2函数在第%d行被调用，参数为%d\n",code_line,arg);
 }
 void func3(char* str) {
-	printf("func3被调用，参数是%s\n", str);
+	printf("func3在第%d行被调用，参数是%s\n",code_line, str);
 }
 
 /*****************************************************************************
- * TODO,测试函数,用于快速输出字符出得到的hash值
-******************************************************************************/
-void PrintHash(char* str) {
-	printf("%d\n", StringToHash(str));
-}
-
-/*****************************************************************************
- * TODO,测试函数,用来快速打印token
+ * 测试函数,用来快速打印token
 ******************************************************************************/
 void Print(char* begin, char* end) {
 	char buf[255] = "";
@@ -107,7 +105,7 @@ void Print(char* begin, char* end) {
 }
 
 /*****************************************************************************
- * TODO,测试函数,用来从文本读取代码文本,返回的char *由malloc获取，使用完毕应当调用free释放
+ * 测试函数,用来从文本读取代码文本,返回的char *由malloc获取，使用完毕应当调用free释放
 ******************************************************************************/
 char* ReadFileToBuf(const char *path) {
 
@@ -150,6 +148,7 @@ char *RangePCharToPChar(char *begin,char *end) {
 // 符号表里存放的实际只有 关键字if elif else 和 函数 （不支持变量定义所以不存在变量
 Symbol symbols[128], cur_symbol;
 char* str;
+int code_line;
 
 /*****************************************************************************
  * 作用：词法分析
@@ -241,18 +240,6 @@ Symbol Next(void) {
 			token.begin = str;
 			token.end = ++str;
 			return token;
-		case '{':
-			token.type = Keyword;
-			token.id = LBB;
-			token.begin = str;
-			token.end = ++str;
-			return token;
-		case '}':
-			token.type = Keyword;
-			token.id = RBB;
-			token.begin = str;
-			token.end = ++str;
-			return token;
 		case '>': {
 			token.begin = str;
 			if (*(str+1) == '=') {
@@ -280,7 +267,19 @@ Symbol Next(void) {
 			token.end = ++str;
 			return token;
 		}
-
+		case '=': {
+			token.begin = str;
+			if (*(str + 1) == '=') {
+				token.id = EQUAL;
+				str++;
+			}
+			else {
+				token.id = ASSIGNMENT;
+			}
+			token.type = Cmp;
+			token.end = ++str;
+			return token;
+		}
 		case ',':
 			token.type = Keyword;
 			token.id = COMMA;
@@ -303,10 +302,11 @@ Symbol Next(void) {
 			token.end = str++;
 			return token;
 
+		case '\n':
+			code_line++;
 		case ' ':
 		case '\t':
 		case '\r':
-		case '\n':
 			str++;
 			return token;
 
@@ -336,7 +336,6 @@ Symbol Next(void) {
 			printf("next不支持该token\n");
 			return token;
 		}
-
 	}
 	return token;
 }
@@ -454,8 +453,8 @@ Symbol MatchUntilByType(SymbolsType symbol_type) {
 	if (*str == '\0') {
 		symbol.id = symbol.type = symbol.val = 0;
 		symbol.begin = symbol.end = NULL;
-		cur_symbol = symbol;
 	}
+	cur_symbol = symbol;
 	return symbol;
 }
 
@@ -468,8 +467,8 @@ Symbol MatchUntilByIF() {
 		&& *str != '\0');
 	if (*str == '0') {
 		memset(&symbol,0,sizeof(Symbol));
-		cur_symbol = symbol;
 	}
+	cur_symbol = symbol;
 	return symbol;
 }
 
@@ -522,7 +521,12 @@ int CheckByTwoValue(int left_val,SymbolsId op, int right_val) {
 		if (left_val >= right_val)
 			result = 1;
 		break;
+	case EQUAL:
+		if (left_val == right_val)
+			result = 1;
+		break;
 	}
+
 	return result;
 }
 
@@ -543,7 +547,7 @@ int CheckExpression() {
 		}
 		// number op VAL
 		else if (left_val.type == Number) {
-			return CheckByTwoValue(right_val.val, op.id, symbols[VAL].val);
+			return CheckByTwoValue(left_val.val, op.id, symbols[VAL].val);
 		}
 		else {
 			printf("错误的条件格式\n");
@@ -584,6 +588,31 @@ int CheckAllExpression() {
 	return ret;
 }
 
+typedef struct {
+	int val;
+	int is_string;
+}Arg;
+Arg args[16];
+void MatchAllArg() {
+	int i = 0;
+	// 第一次match会匹配掉‘(’，之后会匹配','或者‘）’
+	while (Match().id != RLB) {
+		// 判断，如果是数字就直接赋值
+		Symbol arg = Match();
+		if (arg.type == Number) {
+			args[i].val = arg.val;
+		}
+		else if (arg.type == String) {
+			args[i].val = RangePCharToPChar(arg.begin, arg.end);
+			args[i].is_string = 1;
+		}
+		else {
+			printf("错误的参数\n");
+		}
+		// 如果是字符串就malloc一段内存，指针给args[i].val , args[i].flag 置为 1，表示是字符串
+	}
+}
+
 /*****************************************************************************
  * 作用：语句分析，支持两种语句，if和函数调用, 根据当前token判断执行那种语句的处理
 ******************************************************************************/
@@ -600,12 +629,7 @@ void Statement(void) {
 			while (Match().type == Functional)
 				Statement();				
 
-			//MatchUntilById(ELSE);
-			//IgnoreNoneToken();
-			//IgnoreOneLine();
 			MatchUntilById(FI);
-			// Match();
-			//Statement();
 
 			return;
 		}
@@ -628,55 +652,55 @@ void Statement(void) {
 			printf("意外的条件控制符\n");
 			return;
 		}
-		//IgnoreNoneToken();
-		//IgnoreOneLine();
-
-		// 判断cur_symbol.id 是 if ，else ,fi中的哪一个
-		// 由于新增了fi作为if的结尾，因此其余获取到的其他token应视为语法错误
-		// 如果是if 则statement （返回是否可行？）
-		//if (cur_symbol.id == ELSE) {
-		//	MatchByType(Functional);
-		//	Statement();
-		//}
-		//else {
-		//	Statement();
-		//}
 
 		return;
 	}
 
 	else if (cur_symbol.type == Functional) {
-		switch (cur_symbol.id) {
-		case FUNC1: {
-			MatchById(LLB);
-			Symbol arg1 = MatchByType(Number);
-			MatchById(COMMA);
-			Symbol arg2 = MatchByType(Number);
-			MatchById(RLB);
-			MatchById(SEMICOLON);
-			func1(arg1.val, arg2.val);
-			break;
-		}
-		case FUNC2:{
-			MatchById(LLB);
-			Symbol arg1 = MatchByType(Number);
-			MatchById(RLB);
-			MatchById(SEMICOLON);
-			func2(arg1.val);
-			break;
-		}
-		case FUNC3: {
-			MatchById(LLB);
-			Symbol arg1 = MatchByType(String);
-			MatchById(RLB);
-			MatchById(SEMICOLON);
-			char* buf = RangePCharToPChar(arg1.begin, arg1.end);
-			func3(buf);
-			free(buf);
-		}
-		default:
-			break;
-		}
+	/*
+		int arg1,arg2,arg3,arg4,arg5,arg6,arg7;
+		while (MatchArg())	// 解析所有参数，并依次放入arg1 - arg7
+			;
+		// val中存放的是函数地址
+		cur_symbol.val(arg1,arg2,arg3,arg4,arg5,arg6,arg7);
+	*/
+		void (*func)() = symbols[cur_symbol.id].val;
+		MatchAllArg();
+		func(args[0], args[1], args[2], args[3], args[4]);
+		MatchById(SEMICOLON);
+
+
+		//switch (cur_symbol.id) {
+		//case FUNC1: {
+		//	MatchById(LLB);
+		//	Symbol arg1 = MatchByType(Number);
+		//	MatchById(COMMA);
+		//	Symbol arg2 = MatchByType(Number);
+		//	MatchById(RLB);
+		//	MatchById(SEMICOLON);
+		//	func1(arg1.val, arg2.val);
+		//	break;
+		//}
+		//case FUNC2: {
+		//	MatchById(LLB);
+		//	Symbol arg1 = MatchByType(Number);
+		//	MatchById(RLB);
+		//	MatchById(SEMICOLON);
+		//	func2(arg1.val);
+		//	break;
+		//}
+		//case FUNC3: {
+		//	MatchById(LLB);
+		//	Symbol arg1 = MatchByType(String);
+		//	MatchById(RLB);
+		//	MatchById(SEMICOLON);
+		//	char* buf = RangePCharToPChar(arg1.begin, arg1.end);
+		//	func3(buf);
+		//	free(buf);
+		//}
+		//default:
+		//	break;
+		//}
 	}
 
 }
@@ -685,8 +709,10 @@ void Statement(void) {
 // val 数值变化时调用, 设置str作为代码分析的入口
 void AnalyseSliderVale(char *pstr,int val) {
 
+	// 每次重新运行时都需要重新初始化
 	symbols[VAL].val = val;
 	str = pstr;
+	code_line = 1;
 
 	while (*str) {
 		Symbol token = Match();
@@ -778,11 +804,20 @@ int main(int argc,char *argv[]) {
 	// TODO程序在解析之前需要初始化符号表一次
 	InitSymbol();
 
-	char* command = ReadFileToBuf("./command.txt");
-	int val = 3;
-	printf("val is %d\n", val);
-	AnalyseSliderVale(command,val);
-	free(command);
+	for (int i = 0; i < 6; ++i) {
+		char* command = ReadFileToBuf("./command.txt");
+		int val = i;
+		printf("val is %d\n", val);
+		AnalyseSliderVale(command,val);
+		free(command);
+
+		for (long long tmp = 0; tmp < 10000000000; ++tmp)
+			;
+
+		printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+
+	}
+
 
 	return 0;
 }

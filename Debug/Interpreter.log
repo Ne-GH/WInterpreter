@@ -1,2 +1,4 @@
 ﻿  main.c
+D:\Interpreter\Interpreter\main.c(606,55): warning C4047: “=”:“int”与“char *”的间接级别不同
+D:\Interpreter\Interpreter\main.c(667,1): warning C4047: “初始化”:“void (__cdecl *)()”与“int”的间接级别不同
   Interpreter.vcxproj -> D:\Interpreter\Interpreter\Debug\Interpreter.exe

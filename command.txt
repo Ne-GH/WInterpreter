@@ -28,10 +28,15 @@ else
 fi
 
 func3("line is 14");
-if(VAL>1&&VAL<=3)
+if(VAL>1&&VAL<3)
 	func3("VAL > 1 && VAL <= 3");
 	func3("VAL > 1 && VAL <= 3");
 	func3("VAL > 1 && VAL <= 3");
+elif (VAL == 3)
+	func3("VAL == 3");
+	func3("VAL == 3");
+	func3("VAL == 3");
+	func3("VAL == 3");
 else 
 	func3("其他2");
 	func3("其他2");
