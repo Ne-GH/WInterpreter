@@ -20,9 +20,10 @@
 ******************************************************************************/
 
 // 添加函数流程
-// 1、在符号id中添加该函数名称作为ID					ID可通过另一个项目生成
-// 2、在InitSymbolFromFuntional中添加函数
-// 3、在next获取到变量token时对该函数进行比较			case 中的内容可通过另一个项目生成
+// 1、在符号id中添加该函数名称作为ID				
+// 2、在enum hash中添加该函数的hash					hash可通过另一个项目生成
+// 3、在InitSymbolFromFuntional中添加函数
+// 4、在next获取到变量token时对该函数进行比较				case 中的内容可通过另一个项目生成
 
 typedef enum {
 	None, Number, String, Value, Functional, Keyword, Cmp,
@@ -32,7 +33,7 @@ typedef enum {
 typedef enum {
 	// NONE = 0,用来标识错误
 	IF = 1, ELSE, ELIF, FI, VAL, LLB, RLB, LT, GT, LE, GE, ASSIGNMENT, EQUAL, COMMA, SEMICOLON, AND, OR, LAND, LOR,
-	FUNC1 = 32, FUNC2, FUNC3
+	FUNC1 = 32, FUNC2, FUNC3,PRINTPOINTER
 }SymbolsId;
 
 typedef struct Symbol {
@@ -50,6 +51,7 @@ typedef struct {
 // SymbolId 处的定义用全大写，相应的hash用大小写混写
 // HashEnum 应当使用另一个项目生成，防止输入错误以及hash冲突
 enum HashEnum {
+	PrintPointer = -1431804668,
 	Fi = 597,
 	If = 624,
 	Val = 3998,
@@ -86,6 +88,9 @@ void func2(int arg) {
 }
 void func3(char* str) {
 	printf("func3在第%d行被调用，参数是%s\n",code_line, str);
+}
+void printPointer(int* x) {
+	printf("地址是%p\n", x);
 }
 
 /*****************************************************************************
@@ -218,6 +223,10 @@ Symbol Next(void) {
 			case Func3:
 				token.type = Functional;
 				token.id = FUNC3;
+				return token;
+			case PrintPointer:
+				token.type = Functional;
+				token.id = PRINTPOINTER;
 				return token;
 			default:
 				printf("解析到变量，但不支持变量定义");
@@ -710,7 +719,6 @@ void Statement(void) {
 		//	break;
 		//}
 	}
-
 }
 
 
@@ -724,7 +732,6 @@ void AnalyseSliderVale(char *pstr,int val) {
 
 	while (*str) {
 		Symbol token = Match();
-
 		
 		switch (token.type) {
 		case Number: {
@@ -793,6 +800,7 @@ void InitFunctionalFromSymbols() {
 	INIT_FUNCTIONAL_SYMBOLS(FUNC1,func1,5);
 	INIT_FUNCTIONAL_SYMBOLS(FUNC2,func2,5);
 	INIT_FUNCTIONAL_SYMBOLS(FUNC3,func3,5);
+	INIT_FUNCTIONAL_SYMBOLS(PRINTPOINTER, printPointer, 12);
 
 #undef INIT_FUNCIONAL_SYMBOLS
 }

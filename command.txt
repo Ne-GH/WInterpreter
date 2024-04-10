@@ -1,4 +1,4 @@
-func1 (1,2); 
+printPointer (1); 
 
 
 if (1<=VAL)
