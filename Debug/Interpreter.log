@@ -1,4 +1,7 @@
 ﻿  main.c
-D:\Interpreter\Interpreter\main.c(607,55): warning C4047: “=”:“int”与“char *”的间接级别不同
-D:\Interpreter\Interpreter\main.c(670,1): warning C4047: “初始化”:“void (__cdecl *)()”与“int”的间接级别不同
+D:\Interpreter\Interpreter\main.c(606,26): warning C4047: “!=”:“int”与“void *”的间接级别不同
+D:\Interpreter\Interpreter\main.c(607,16): warning C4022: “free”: 指针与实参 1 不匹配
+D:\Interpreter\Interpreter\main.c(608,22): warning C4047: “=”:“int”与“void *”的间接级别不同
+D:\Interpreter\Interpreter\main.c(624,55): warning C4047: “=”:“int”与“char *”的间接级别不同
+D:\Interpreter\Interpreter\main.c(687,1): warning C4047: “初始化”:“void (__cdecl *)()”与“int”的间接级别不同
   Interpreter.vcxproj -> D:\Interpreter\Interpreter\Debug\Interpreter.exe

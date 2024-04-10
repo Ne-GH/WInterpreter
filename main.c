@@ -42,6 +42,11 @@ typedef struct Symbol {
 	int val; 
 }Symbol;
 
+typedef struct {
+	int val;
+	int is_string;
+}Arg;
+
 // SymbolId 处的定义用全大写，相应的hash用大小写混写
 // HashEnum 应当使用另一个项目生成，防止输入错误以及hash冲突
 enum HashEnum {
@@ -150,6 +155,10 @@ char *RangePCharToPChar(char *begin,char *end) {
 Symbol symbols[128], cur_symbol;
 char* str;
 int code_line;
+
+#define args_count (8)
+Arg args[args_count];
+
 
 /*****************************************************************************
  * 作用：词法分析
@@ -589,11 +598,19 @@ int CheckAllExpression() {
 	return ret;
 }
 
-typedef struct {
-	int val;
-	int is_string;
-}Arg;
-Arg args[16];
+void FreeArgsMemory() {
+	// 参数中遇到字符串申请的内存
+	for (int i = 0; i < args_count; ++i) {
+		if (args[i].is_string == 0)
+			return;
+		if (args[i].val != NULL) {
+			free(args[i].val);
+			args[i].val = NULL;
+			args[i].is_string = 0;
+		}
+	}
+}
+
 void MatchAllArg() {
 	int i = 0;
 	// 第一次match会匹配掉‘(’，之后会匹配','或者‘）’
@@ -667,9 +684,12 @@ void Statement(void) {
 		// val中存放的是函数地址
 		cur_symbol.val(arg1,arg2,arg3,arg4,arg5,arg6,arg7);
 	*/
-		void (*func)() = symbols[cur_symbol.id].val;
+		void  (*func)() = symbols[cur_symbol.id].val;
 		MatchAllArg();
 		func(args[0].val, args[1].val, args[2].val, args[3].val, args[4].val, args[5].val);
+
+		FreeArgsMemory();
+
 		MatchById(SEMICOLON);
 
 
@@ -802,6 +822,9 @@ void InitSymbol() {
 	InitFunctionalFromSymbols();
 }
 
+
+
+
 int main(int argc,char *argv[]) {
 
 	// TODO程序在解析之前需要初始化符号表一次
@@ -809,6 +832,7 @@ int main(int argc,char *argv[]) {
 
 	for (int i = 0; i < 6; ++i) {
 		char* command = ReadFileToBuf("./command.txt");
+
 		int val = i;
 		printf("val is %d\n", val);
 		AnalyseSliderVale(command,val);
