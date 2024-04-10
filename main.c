@@ -15,7 +15,7 @@
  *	<op>				:= '&&' | '||' | '=='
  *	<elif_statement>	:= 'elif' '(' <check_statement> ')' <statement>+ {<elif_statement>} {<else_statement>}
  *	<else_statement>	:= 'else'	<statement>+
- *	<statement>			:= functional([arg] {',' arg}) ';'
+ *	<statement>			:= functional '(' [arg] {',' arg} ')' ';'
  *
 ******************************************************************************/
 
@@ -650,17 +650,14 @@ void Statement(void) {
 
 		// 条件成立需要执行if下的语句
 		if (result == 1) {
-			//TODO		仅支持单条指令
 			while (Match().type == Functional)
 				Statement();				
 
 			MatchUntilById(FI);
-
 			return;
 		}
 		
-		// 如果if 未命中，需匹配到下一个elif（if）、else 、fi
-		// MatchToIfEnd()
+		// 如果if 未命中，需匹配到下一个elif（if）、else 、fi，也就说忽略本条if下的所有语句
 		switch (MatchUntilByIFOrElse().id) {
 
 		case IF:
@@ -801,7 +798,7 @@ void InitKeywordsFromSymbols(){
 void InitFunctionalFromSymbols() {
 #define INIT_FUNCTIONAL_SYMBOLS(key,str,len)  \
 	symbols[key].type = Functional;\
-	symbols[key].id = FUNC1;\
+	symbols[key].id = key;\
 	symbols[key].begin = &#str [0];\
 	symbols[key].end = symbols[key].begin + len;\
 	symbols[key].val = (int)&str;
@@ -822,8 +819,6 @@ void InitSymbol() {
 	InitKeywordsFromSymbols();
 	InitFunctionalFromSymbols();
 }
-
-
 
 
 int main(int argc,char *argv[]) {
