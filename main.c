@@ -86,7 +86,7 @@ int RangeStringToHash(char* begin, char* end) {
 	return ret_hash;
 }
 
-extern int code_line;
+extern int code_line;		// code_line 定义在下面，需要func的时候，本条 extern 语句可以删除
 /*****************************************************************************
  * 测试函数,func1,func2,func3,测试函数调用和匹配不同类型的参数
 ******************************************************************************/
@@ -156,8 +156,9 @@ Symbol symbols[128], cur_symbol;
 char* str;
 int code_line;
 
-#define args_count (8)
-Arg args[args_count];
+// 参数列表，vs不支持VLA以及const int作大小因此使用define
+#define ARGS_COUNT (8)
+Arg args[ARGS_COUNT];
 
 
 /*****************************************************************************
@@ -362,12 +363,8 @@ Symbol Match(void) {
 	} while (symbol.type == None && *str != '\0');
 
 	if (*str == '\0') {
-		symbol.id = symbol.type = symbol.val = 0;
-		symbol.begin = symbol.end = NULL;
-		cur_symbol = symbol;
-		return symbol;
+		memset(&symbol, 0, sizeof(Symbol));
 	}
-
 	cur_symbol = symbol;
 	return symbol;
 }
@@ -386,8 +383,7 @@ Symbol MatchById(SymbolsId symbol_id) {
 	} while (symbol.type == None && *str != '\0');
 
 	if (*str == '\0') {
-		symbol.id = symbol.type = symbol.val = 0;
-		symbol.begin = symbol.end = NULL;
+		memset(&symbol, 0, sizeof(Symbol));
 		cur_symbol = symbol;
 		return symbol;
 	}
@@ -414,8 +410,7 @@ Symbol MatchByType(SymbolsType symbol_type) {
 	} while (symbol.type == None && *str != '\0');
 
 	if (*str == '\0') {
-		symbol.id = symbol.type = symbol.val = 0;
-		symbol.begin = symbol.end = NULL;
+		memset(&symbol, 0, sizeof(Symbol));
 		cur_symbol = symbol;
 		return symbol;
 	}
@@ -431,7 +426,7 @@ Symbol MatchByType(SymbolsType symbol_type) {
 /*****************************************************************************
  * 作用：获取下一个Id为指定Id的token,中间获取到的Id不为指定id的token都将被舍弃
  * 参数：SymbolId类型，为想要获取的token的id
- * 返回值：获取成功时返回获取到的token信息，否则表示遇到代码文本结尾空字符，返回一个token，该token所在内存被写0 TODO,测试赋值和memset速度
+ * 返回值：获取成功时返回获取到的token信息，否则表示遇到代码文本结尾空字符，返回一个token，该token所在内存被写0
 ******************************************************************************/
 Symbol MatchUntilById(SymbolsId symbol_id) {
 	Symbol symbol;
@@ -439,10 +434,7 @@ Symbol MatchUntilById(SymbolsId symbol_id) {
 		symbol = Next();
 	} while (symbol.id != symbol_id && *str != '\0');
 	if (*str == '\0') {
-		symbol.id = symbol.type = symbol.val = 0;
-		symbol.begin = symbol.end = NULL;
-		cur_symbol = symbol;
-		return symbol;
+		memset(&symbol, 0, sizeof(Symbol));
 	}
 	cur_symbol = symbol;
 
@@ -453,7 +445,7 @@ Symbol MatchUntilById(SymbolsId symbol_id) {
 /*****************************************************************************
  * 作用：获取下一个Type为指定Type的token,中间获取到的Type不为指定type的token都将被舍弃
  * 参数：SymbolType类型，为想要获取的token的类型
- * 返回值：获取成功时返回获取到的token信息，否则表示遇到代码文本结尾空字符，返回一个token，该token所在内存被写0 TODO,测试赋值和memset速度
+ * 返回值：获取成功时返回获取到的token信息，否则表示遇到代码文本结尾空字符，返回一个token，该token所在内存被写0
 ******************************************************************************/
 Symbol MatchUntilByType(SymbolsType symbol_type) {
 	Symbol symbol;
@@ -461,15 +453,18 @@ Symbol MatchUntilByType(SymbolsType symbol_type) {
 		symbol = Next();
 	} while (symbol.type != symbol_type && *str != '\0');
 	if (*str == '\0') {
-		symbol.id = symbol.type = symbol.val = 0;
-		symbol.begin = symbol.end = NULL;
+		memset(&symbol, 0, sizeof(Symbol));
 	}
 	cur_symbol = symbol;
 	return symbol;
 }
 
 
-Symbol MatchUntilByIF() {
+/*****************************************************************************
+ * 作用：获取下一个id为IF、ELSE、FI之一的token,中间获取到的Type不为指定type的token都将被舍弃
+ * 返回值：获取成功时返回获取到的token信息，否则表示遇到代码文本结尾空字符，返回一个token，该token所在内存被写0
+******************************************************************************/
+Symbol MatchUntilByIFOrElse() {
 	Symbol symbol;
 	do {
 		symbol = Next();
@@ -597,20 +592,30 @@ int CheckAllExpression() {
 	}
 	return ret;
 }
+ 
 
+/*****************************************************************************
+ * 作用：有些函数执行时需要字符串参数，但是next解析出的token没有空字符结尾，因此使用RangePCharToPChar
+ *		对字符串数据进行封装，但是该函数返回的指针为malloc的指针，因此应当在函数执行完成后释放这些内存
+******************************************************************************/
 void FreeArgsMemory() {
 	// 参数中遇到字符串申请的内存
-	for (int i = 0; i < args_count; ++i) {
+	for (int i = 0; i < ARGS_COUNT; ++i) {
 		if (args[i].is_string == 0)
 			return;
-		if (args[i].val != NULL) {
-			free(args[i].val);
-			args[i].val = NULL;
+		if (args[i].val != (int)NULL) {
+			free((void *)args[i].val);
+			args[i].val = (int)NULL;
 			args[i].is_string = 0;
 		}
 	}
 }
 
+
+/*****************************************************************************
+ * 作用：有些函数执行时需要字符串参数，但是next解析出的token没有空字符结尾，因此使用RangePCharToPChar
+ *		对字符串数据进行封装，但是该函数返回的指针为malloc的指针，因此应当在函数执行完成后释放这些内存
+******************************************************************************/
 void MatchAllArg() {
 	int i = 0;
 	// 第一次match会匹配掉‘(’，之后会匹配','或者‘）’
@@ -621,7 +626,7 @@ void MatchAllArg() {
 			args[i].val = arg.val;
 		}
 		else if (arg.type == String) {
-			args[i].val = RangePCharToPChar(arg.begin, arg.end);
+			args[i].val = (int)RangePCharToPChar(arg.begin, arg.end);
 			args[i].is_string = 1;
 		}
 		else {
@@ -656,7 +661,7 @@ void Statement(void) {
 		
 		// 如果if 未命中，需匹配到下一个elif（if）、else 、fi
 		// MatchToIfEnd()
-		switch (MatchUntilByIF().id) {
+		switch (MatchUntilByIFOrElse().id) {
 
 		case IF:
 			Statement();
@@ -677,19 +682,15 @@ void Statement(void) {
 	}
 
 	else if (cur_symbol.type == Functional) {
-	/*
-		int arg1,arg2,arg3,arg4,arg5,arg6,arg7;
-		while (MatchArg())	// 解析所有参数，并依次放入arg1 - arg7
-			;
-		// val中存放的是函数地址
-		cur_symbol.val(arg1,arg2,arg3,arg4,arg5,arg6,arg7);
-	*/
-		void  (*func)() = symbols[cur_symbol.id].val;
+
+		// 不能写为MatchAllArg();
+		// ((int (*)())symbols[cur_symbol.id].val)(args[0].val,args[1].val,args[2].val,args[3].val,args[4].val,args[5].val);
+
+		// 因为cur_symbol在MatchAllArg的时候已经更改，函数地址丢失，无法正常调用
+		int (*func)() = symbols[cur_symbol.id].val;
 		MatchAllArg();
-		func(args[0].val, args[1].val, args[2].val, args[3].val, args[4].val, args[5].val);
-
+		int ret = func(args[0].val, args[1].val, args[2].val, args[3].val, args[4].val, args[5].val);
 		FreeArgsMemory();
-
 		MatchById(SEMICOLON);
 
 
@@ -827,7 +828,7 @@ void InitSymbol() {
 
 int main(int argc,char *argv[]) {
 
-	// TODO程序在解析之前需要初始化符号表一次
+	// 在第一次解析之前需要初始化符号表一次,也可以重复初始化，以为其值固定
 	InitSymbol();
 
 	for (int i = 0; i < 6; ++i) {
