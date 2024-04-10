@@ -1,3 +1,2 @@
 ﻿  main.c
-D:\Interpreter\Interpreter\main.c(687,1): warning C4047: “初始化”:“int (__cdecl *)()”与“int”的间接级别不同
   Interpreter.vcxproj -> D:\Interpreter\Interpreter\Debug\Interpreter.exe

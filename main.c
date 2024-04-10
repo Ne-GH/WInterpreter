@@ -60,19 +60,6 @@ enum HashEnum {
 	Func3 = 615713,
 };
 
-/*****************************************************************************
- * 作用：  计算hash，hash用于在Next词法分析中快速判断当前tokn为哪个关键字或者函数
- * 参数：  给定一个NUL结尾的字符串
- * 返回值：根据参数得到的hash
-******************************************************************************/
-int StringToHash(char* str) {
-	int hash_ret = 0;
-	while (*str) {
-		hash_ret = hash_ret * 10 + *str-'0';
-		str++;
-	}
-	return hash_ret;
-}
 
 /*****************************************************************************
  * 用于计算hash，区别在于本函数参数使用两个char *作范围，无需NUL结尾
@@ -684,7 +671,7 @@ void Statement(void) {
 		// ((int (*)())symbols[cur_symbol.id].val)(args[0].val,args[1].val,args[2].val,args[3].val,args[4].val,args[5].val);
 
 		// 因为cur_symbol在MatchAllArg的时候已经更改，函数地址丢失，无法正常调用
-		int (*func)() = symbols[cur_symbol.id].val;
+		int (*func)() = ((int(*)())symbols[cur_symbol.id].val);
 		MatchAllArg();
 		int ret = func(args[0].val, args[1].val, args[2].val, args[3].val, args[4].val, args[5].val);
 		FreeArgsMemory();
